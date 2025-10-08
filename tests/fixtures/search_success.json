@@ -1,0 +1,12 @@
+{
+  "results": [
+    {
+      "query_result": {
+        "uuid": "u-123",
+        "title": "Doc Title",
+        "url": "https://example.com/doc",
+        "preview": "Some text preview"
+      }
+    }
+  ]
+}
