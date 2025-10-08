@@ -1,0 +1,13 @@
+# Normalize line endings in the repo
+* text=auto eol=lf
+
+# Treat common binary types as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.ico binary
+
+# Keep lockfiles stable
+uv.lock -diff -merge

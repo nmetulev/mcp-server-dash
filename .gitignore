@@ -1,0 +1,49 @@
+*.old
+boneyard/
+# Byte-compiled / optimized / compiled files
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+.env
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Database files
+*.sqlite3
+
+# Dependency management
+# Pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# Sensitive information (example)
+config.ini
+.env.local
+dropbox_token.json
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Test coverage
+.coverage
+htmlcov/
