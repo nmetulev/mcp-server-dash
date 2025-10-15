@@ -170,7 +170,7 @@ class DashAPI:
         if req.file_type and req.file_type != "document":
             body["filters"] = [{"type": "file_type_filter", "file_types": [req.file_type]}]
 
-        resp = await self._post("https://api.dropboxapi.com/2/dcs/search", json=body)
+        resp = await self._post("https://api.dropboxapi.com/2/dcs/search_mcp", json=body)
         data = resp.json()
 
         results = []
@@ -187,7 +187,7 @@ class DashAPI:
             "include_preview_url": req.include_preview_url,
         }
 
-        resp = await self._post("https://api.dropboxapi.com/2/dcs/get_link_metadata", json=body)
+        resp = await self._post("https://api.dropboxapi.com/2/dcs/get_link_metadata_mcp", json=body)
         data = resp.json()
 
         results = [FileMetadata(**item) for item in data.get("results", [])]
