@@ -40,6 +40,22 @@ If the user is not yet authenticated (or the token has expired):
 2) `dash_authenticate(auth_code)` → store the token.
 3) Proceed with `dash_company_search(...)` and `dash_get_file_details(uuid)`.
 
+## Prerequisites
+
+Before installing and running the MCP server, you need to create a Dropbox app to obtain API credentials:
+
+1. Go to [dropbox.com/developers/apps](https://www.dropbox.com/developers/apps)
+2. Click on **Create app**
+3. Select **Scoped access** as the API type
+4. Choose **Full Dropbox** access
+5. Give your app a name
+6. After creating the app, go to the **Permissions** tab and enable:
+   - `files.metadata.read`
+   - `files.content.read`
+7. Take note of the **App key** and **App secret** values from the **Settings** tab (you'll need these for configuration)
+
+These credentials will be used as `APP_KEY` and `APP_SECRET` in the installation steps below.
+
 ## Requirements
 
 - Python 3.10 or higher
