@@ -8,16 +8,20 @@ import pathlib
 from contextlib import suppress
 
 import dropbox
+import keyring
 
 logger = logging.getLogger(__name__)
+
+# Keyring service name for storing Dropbox tokens
+KEYRING_SERVICE = "mcp-server-dash"
+KEYRING_USERNAME = "dropbox_access_token"
 
 
 class DropboxTokenStore:
     """Handles persistence and validation of a Dropbox OAuth access token.
 
-    Default location: a local file named `dropbox_token.json` in the current
-    working directory. Falls back to reading from `./data/dropbox_token.json`
-    for backward compatibility when loading.
+    Uses the system keyring for secure token storage. Falls back to reading
+    from legacy file-based storage (`dropbox_token.json`).
     """
 
     def __init__(self, base_dir: pathlib.Path | None = None) -> None:
@@ -35,9 +39,13 @@ class DropboxTokenStore:
         return bool(self.access_token and self.dbx)
 
     def clear(self) -> None:
-        """Clear any saved token and delete the token file."""
+        """Clear any saved token from keyring and delete legacy token files."""
         self.access_token = None
         self.dbx = None
+        # Remove from keyring
+        with suppress(Exception):
+            keyring.delete_password(KEYRING_SERVICE, KEYRING_USERNAME)
+        # Remove legacy file-based tokens
         with suppress(Exception):
             self._token_file.unlink(missing_ok=True)
 
@@ -51,27 +59,36 @@ class DropboxTokenStore:
             return None
 
     def load(self) -> bool:
-        """Load token from disk and validate it.
+        """Load token from keyring (or legacy file storage) and validate it.
 
         Returns True if a valid token is loaded, else False.
         """
         try:
             token = None
-            # Preferred location: local dropbox_token.json in CWD
-            if self._token_file.exists():
+            # Primary: Load from keyring
+            token = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
+
+            # Fallback: local dropbox_token.json in CWD
+            if not token and self._token_file.exists():
                 token = self._read_token_file(self._token_file)
-            # Fallback: historical location ./data/dropbox_token.json
-            if not token:
-                legacy = pathlib.Path.cwd() / "data" / "dropbox_token.json"
-                if legacy.exists():
-                    token = self._read_token_file(legacy)
+                if token:
+                    logger.info("Migrating token from legacy file to keyring")
+
             if not token:
                 return False
+
             # Validate token by calling current account
             dbx = dropbox.Dropbox(token)
             dbx.users_get_current_account()
             self.access_token = token
             self.dbx = dbx
+
+            # If loaded from legacy file, save to keyring and remove file
+            if self._token_file.exists():
+                self.save(token)
+                with suppress(Exception):
+                    self._token_file.unlink(missing_ok=True)
+
             return True
         except dropbox.exceptions.AuthError as e:
             logger.warning("Invalid/expired Dropbox token found on load: %s", e)
@@ -83,8 +100,7 @@ class DropboxTokenStore:
             return False
 
     def save(self, token: str) -> None:
-        """Persist token to disk and set in-memory state."""
-        with self._token_file.open("w") as f:
-            json.dump({"access_token": token}, f)
+        """Persist token to keyring and set in-memory state."""
+        keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, token)
         self.access_token = token
         self.dbx = dropbox.Dropbox(token)
