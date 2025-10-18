@@ -17,6 +17,7 @@ from typing import Any, Literal
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
+from auth_pkce import PKCEAuthFlow
 from dash_api import (
     DashAPI,
     DashSearchRequest,
@@ -51,6 +52,9 @@ APP_SECRET = os.getenv("APP_SECRET")
 
 token_store = DropboxTokenStore()
 token_store.load()
+
+# PKCE authentication flow handler
+pkce_flow = PKCEAuthFlow()
 
 
 def require_auth(func):
@@ -94,7 +98,7 @@ mcp = FastMCP("dash-mcp")
 @mcp.tool()
 @require_app_creds
 async def dash_get_auth_url() -> str:
-    """Start Dropbox OAuth; returns the authorization URL.
+    """Start Dropbox OAuth with PKCE; returns the authorization URL.
 
     When to use:
     - Use this when the user is not yet authenticated or if a previous token has expired.
@@ -106,6 +110,11 @@ async def dash_get_auth_url() -> str:
     Requirements:
     - Environment must provide `APP_KEY` and `APP_SECRET` (via env or `.env`).
 
+    Security:
+    - This implementation uses PKCE (RFC 7636) to protect against authorization code interception.
+      Even if an attacker intercepts the auth code, they cannot exchange it without the
+      code_verifier that exists only in this server's memory.
+
     Returns (text):
     - A short instruction message followed by the authorization URL on its own line.
       Example:
@@ -116,26 +125,33 @@ async def dash_get_auth_url() -> str:
     - Use `dash_authenticate` immediately after the user completes the browser step.
     """
     try:
-        if dropbox is None:
-            return "Dropbox SDK is not installed. Please install 'dropbox' to use auth tools."
-        auth_flow = dropbox.DropboxOAuth2FlowNoRedirect(APP_KEY, APP_SECRET)
-        authorize_url = auth_flow.start()
+        # Type assertion: @require_app_creds decorator guarantees APP_KEY is set
+        assert APP_KEY is not None
+        authorize_url = pkce_flow.generate_auth_url(APP_KEY)
         return (
             "Visit this URL to authorize Dropbox Dash. After authorizing, copy the code and "
             "call dash_authenticate(auth_code).\n\n"
             f"{authorize_url}"
         )
+    except RuntimeError as e:
+        return str(e)
     except Exception as e:
+        logger.error(f"Error generating auth URL: {e}")
         return f"Error generating auth URL: {e}"
 
 
 @mcp.tool()
 @require_app_creds
 async def dash_authenticate(auth_code: str) -> str:
-    """Complete Dropbox OAuth using the one-time authorization code.
+    """Complete Dropbox OAuth using the one-time authorization code with PKCE.
 
     Parameters:
     - auth_code: string (required) — the code the user copied from the Dropbox approval page.
+
+    Security:
+    - This implementation uses PKCE (RFC 7636) to protect against authorization code interception.
+      The code_verifier generated in dash_get_auth_url is included in the token exchange to prove
+      that the same client that initiated the flow is completing it.
 
     Returns (text):
     - On success: account display name and email, plus a confirmation that tools are available.
@@ -150,11 +166,23 @@ async def dash_authenticate(auth_code: str) -> str:
     """
     global token_store
     try:
+        # Type assertions: @require_app_creds decorator guarantees these are set
+        assert APP_KEY is not None
+        assert APP_SECRET is not None
+
+        # Exchange authorization code for access token
+        token_data = await pkce_flow.exchange_code_for_token(auth_code, APP_KEY, APP_SECRET)
+        access_token = token_data.get("access_token")
+
+        if not access_token or not isinstance(access_token, str):
+            return "Authentication failed: no valid access token received from Dropbox."
+
+        # Import dropbox here to get proper typing
+        from auth_pkce import dropbox
+
         if dropbox is None:
             return "Dropbox SDK is not installed. Please install 'dropbox' to authenticate."
-        auth_flow = dropbox.DropboxOAuth2FlowNoRedirect(APP_KEY, APP_SECRET)
-        oauth_result = auth_flow.finish(auth_code)
-        access_token = oauth_result.access_token
+
         # Validate by fetching account
         dbx = dropbox.Dropbox(access_token)
         account = dbx.users_get_current_account()
@@ -168,20 +196,23 @@ async def dash_authenticate(auth_code: str) -> str:
                 "authenticating again."
             )
 
+        logger.info("Successfully authenticated with PKCE")
         return (
             "Successfully authenticated with Dropbox!\n\n"
             f"Account: {account.name.display_name}\n"
             f"Email: {account.email}\n\n"
             "You can now use all Dropbox tools."
         )
-    except dropbox.exceptions.AuthError as e:
-        logger.warning("Dropbox AuthError during authentication: %s", e)
+    except RuntimeError as e:
+        return str(e)
+    except ValueError as e:
         return (
-            "Authentication failed: invalid or expired authorization code. "
-            "Please restart the flow: call dash_get_auth_url, authorize, then retry with the new "
-            "code."
+            f"Authentication failed: {e}\n\n"
+            "Please restart the flow: call dash_get_auth_url, authorize, "
+            "then retry with the new code."
         )
     except Exception as e:
+        logger.error(f"Authentication failed: {e}")
         return (
             f"Authentication failed: {e}\n\n"
             "Please make sure you copied the authorization code correctly and try again."
