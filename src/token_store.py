@@ -104,3 +104,28 @@ class DropboxTokenStore:
         keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, token)
         self.access_token = token
         self.dbx = dropbox.Dropbox(token)
+
+
+def main() -> None:
+    """Interactive token management utility."""
+    store = DropboxTokenStore()
+
+    # Check if token exists
+    token = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
+
+    if not token:
+        print("No token found in keyring.")
+        return
+
+    print(f"Token found in keyring (service: {KEYRING_SERVICE})")
+    response = input("Do you want to remove the token? (y/N): ").strip().lower()
+
+    if response == "y":
+        store.clear()
+        print("Token removed successfully.")
+    else:
+        print("Token not removed.")
+
+
+if __name__ == "__main__":
+    main()
