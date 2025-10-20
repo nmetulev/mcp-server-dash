@@ -8,7 +8,7 @@ An MCP server that exposes Dropbox Dash search and file metadata via STDIO using
   - Summary: Start Dropbox OAuth; returns the authorization URL.
   - Args: none
   - Returns (text): A short instruction message followed by the URL.
-  - Notes: Use when not yet authenticated or when a token has expired. After approval in the browser, call `dash_authenticate` with the one-time code. Tokens are cached locally, so this is typically a one-time setup.
+  - Notes: Use when not yet authenticated or when a token has expired. After approval in the browser, call `dash_authenticate` with the one-time code. Tokens are stored securely in your system keyring, so this is typically a one-time setup.
 
 - `dash_authenticate`
   - Summary: Complete OAuth using the one-time authorization code.
@@ -109,7 +109,13 @@ cp .env.example .env
 uv run src/mcp_server_dash.py
 ```
 
-Authenticate via tools: call dash_get_auth_url, then dash_authenticate with the code. A token is stored at `dropbox_token.json` in the project directory (legacy path `data/dropbox_token.json` is also supported for loading).
+Authenticate via tools: call `dash_get_auth_url`, then `dash_authenticate` with the code. The access token is securely stored in your system's keyring (macOS Keychain, Windows Credential Manager, or Linux Secret Service).
+
+### Token Management
+
+Tokens are stored securely in your system keyring under the service name `mcp-server-dash`.
+
+To clear a stored token, use your system's credential management tool (Keychain Access on macOS, Credential Manager on Windows, or Secret Service on Linux) to delete the `mcp-server-dash` entry.
 
 ### Common MCP Server Configuration
 
@@ -139,6 +145,8 @@ MCP Server Configuration:
   }
 }
 ```
+
+**Security Note:** For better security, consider using environment variables or a `.env` file with restrictive permissions (excluded from version control) instead of placing credentials directly in the MCP config file.
 
 ### Using Claude as the Client
 - Open `Claude Desktop → Settings → Developer → Local MCP Servers → Edit Config`
