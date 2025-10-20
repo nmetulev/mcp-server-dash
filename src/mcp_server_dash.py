@@ -170,8 +170,8 @@ async def dash_authenticate(auth_code: str) -> str:
         assert APP_KEY is not None
         assert APP_SECRET is not None
 
-        # Exchange authorization code for access token
-        token_data = await pkce_flow.exchange_code_for_token(auth_code, APP_KEY, APP_SECRET)
+        # Exchange authorization code for access token using PKCE (no secret needed)
+        token_data = await pkce_flow.exchange_code_for_token(auth_code, APP_KEY)
         access_token = token_data.get("access_token")
 
         if not access_token or not isinstance(access_token, str):

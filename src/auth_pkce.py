@@ -85,15 +85,12 @@ class PKCEAuthFlow:
         logger.info("Generated PKCE-protected authorization URL")
         return authorize_url
 
-    async def exchange_code_for_token(
-        self, auth_code: str, app_key: str, app_secret: str
-    ) -> dict[str, Any]:
+    async def exchange_code_for_token(self, auth_code: str, app_key: str) -> dict[str, Any]:
         """Exchange authorization code for access token using PKCE.
 
         Args:
             auth_code: Authorization code from user
             app_key: Dropbox app key (client ID)
-            app_secret: Dropbox app secret
 
         Returns:
             Token response from Dropbox containing access_token and other fields
@@ -117,7 +114,6 @@ class PKCEAuthFlow:
                         "code": auth_code,
                         "grant_type": "authorization_code",
                         "client_id": app_key,
-                        "client_secret": app_secret,
                         "code_verifier": self._code_verifier,
                     },
                 )
