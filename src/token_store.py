@@ -17,6 +17,23 @@ KEYRING_SERVICE = "mcp-server-dash"
 KEYRING_USERNAME = "dropbox_access_token"
 
 
+def get_default_token_dir() -> pathlib.Path:
+    """Get a writable directory for token storage.
+    
+    Uses user's home directory/.mcp-server-dash/ which is guaranteed to be writable.
+    Falls back to CWD if home directory is not accessible.
+    """
+    try:
+        # Use user's home directory for reliable, writable storage
+        home = pathlib.Path.home()
+        token_dir = home / ".mcp-server-dash"
+        token_dir.mkdir(parents=True, exist_ok=True)
+        return token_dir
+    except Exception as e:
+        logger.warning(f"Could not use home directory for token storage: {e}, falling back to CWD")
+        return pathlib.Path.cwd()
+
+
 class DropboxTokenStore:
     """Handles persistence and validation of a Dropbox OAuth access token.
 
@@ -25,7 +42,7 @@ class DropboxTokenStore:
     """
 
     def __init__(self, base_dir: pathlib.Path | None = None) -> None:
-        base = base_dir or pathlib.Path.cwd()
+        base = base_dir or get_default_token_dir()
         self._token_file = base / "dropbox_token.json"
         self.access_token: str | None = None
         self.dbx: dropbox.Dropbox | None = None
@@ -100,8 +117,27 @@ class DropboxTokenStore:
             return False
 
     def save(self, token: str) -> None:
-        """Persist token to keyring and set in-memory state."""
-        keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, token)
+        """Persist token to keyring (or file as fallback) and set in-memory state."""
+        try:
+            # Try to save to keyring first
+            keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, token)
+            logger.debug("Token saved to keyring successfully")
+        except Exception as e:
+            # Fallback to file-based storage if keyring fails (common on Windows)
+            logger.warning(f"Failed to save token to keyring: {e}, falling back to file storage")
+            try:
+                self._token_file.parent.mkdir(parents=True, exist_ok=True)
+                with self._token_file.open("w") as f:
+                    json.dump({"access_token": token}, f)
+                # Set restrictive permissions on Windows (owner only)
+                if hasattr(self._token_file, 'chmod'):
+                    with suppress(Exception):
+                        self._token_file.chmod(0o600)
+                logger.info(f"Token saved to file: {self._token_file}")
+            except Exception as file_error:
+                logger.error(f"Failed to save token to file: {file_error}")
+                raise RuntimeError(f"Failed to save token to keyring or file: {file_error}") from file_error
+        
         self.access_token = token
         self.dbx = dropbox.Dropbox(token)
 
