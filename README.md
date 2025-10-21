@@ -52,14 +52,14 @@ Before installing and running the MCP server, you need to create a Dropbox app t
 6. After creating the app, go to the **Permissions** tab and enable:
    - `files.metadata.read`
    - `files.content.read`
-7. Take note of the **App key** and **App secret** values from the **Settings** tab (you'll need these for configuration)
+7. Take note of the **App key** value from the **Settings** tab (you'll need this for configuration)
 
-These credentials will be used as `APP_KEY` and `APP_SECRET` in the installation steps below.
+This credential will be used as `APP_KEY` in the installation steps below.
 
 ## Requirements
 
 - Python 3.10 or higher
-- Dropbox Dash API credentials (Client ID and Client Secret)
+- Dropbox Dash API credentials (App key)
 - Network access to Dropbox APIs
 
 ## Installation
@@ -95,9 +95,8 @@ uv sync
 
 ### Provide credentials (environment or `.env`)
 ```bash
-export APP_KEY=your_dropbox_client_id
-export APP_SECRET=your_dropbox_client_secret
-# or create a .env file with APP_KEY and APP_SECRET
+export APP_KEY=your_dropbox_app_key
+# or create a .env file with APP_KEY
 # e.g., copy the example file:
 cp .env.example .env
 ```
@@ -123,7 +122,7 @@ For most MCP clients, including Claude and Cursor, you need to insert the below 
 configuration into a specific configuration file. See the specific instructions for 
 Claude and Cursor below.
 
-❗ **Important:** Update the configuration below with the path to your installation and with your `APP_KEY` and `APP_SECRET`.
+❗ **Important:** Update the configuration below with the path to your installation and with your `APP_KEY`.
 
 MCP Server Configuration:
 ```json
@@ -134,12 +133,11 @@ MCP Server Configuration:
       "args": [
           "--directory",
           "/path/to/mcp-server-dash/",
-          "run", 
+          "run",
           "src/mcp_server_dash.py"
       ],
       "env": {
-        "APP_KEY": "your_dropbox_client_id",
-        "APP_SECRET": "your_dropbox_client_secret"
+        "APP_KEY": "your_dropbox_app_key"
       }
     }
   }
@@ -169,7 +167,6 @@ MCP Server Configuration:
   - **Command**: `uv --directory /path/to/mcp-server-dash/ run src/mcp_server_dash.py`
   - **Environment**:
     - `APP_KEY`: Your Dropbox Client ID
-    - `APP_SECRET`: Your Dropbox Client Secret
 - Click `Add Extension`
 
 
@@ -215,7 +212,7 @@ You can inspect and debug the server with the Model Context Protocol Inspector:
 npx @modelcontextprotocol/inspector uv run src/mcp_server_dash.py
 ```
 
-Ensure `APP_KEY` and `APP_SECRET` are set in your environment or `.env` before running the inspector.
+Ensure `APP_KEY` is set in your environment or `.env` before running the inspector.
 
 ## License
 

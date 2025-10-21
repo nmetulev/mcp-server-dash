@@ -127,9 +127,8 @@ def test_generate_code_challenge():
 @pytest.mark.asyncio
 async def test_dash_get_auth_url_includes_pkce(monkeypatch):
     """Test that dash_get_auth_url generates URL with PKCE parameters."""
-    # Set module-level APP_KEY and APP_SECRET
+    # Set module-level APP_KEY
     monkeypatch.setattr(mcp_server_dash, "APP_KEY", "test_app_key")
-    monkeypatch.setattr(mcp_server_dash, "APP_SECRET", "test_app_secret")
 
     # Reset module-level state
     mcp_server_dash.pkce_flow._code_verifier = None
@@ -155,7 +154,6 @@ async def test_dash_get_auth_url_includes_pkce(monkeypatch):
 async def test_dash_authenticate_requires_code_verifier(monkeypatch):
     """Test that dash_authenticate fails if code_verifier is not set."""
     monkeypatch.setattr(mcp_server_dash, "APP_KEY", "test_app_key")
-    monkeypatch.setattr(mcp_server_dash, "APP_SECRET", "test_app_secret")
 
     # Clear code_verifier
     mcp_server_dash.pkce_flow._code_verifier = None
@@ -170,7 +168,6 @@ async def test_dash_authenticate_requires_code_verifier(monkeypatch):
 async def test_dash_authenticate_includes_code_verifier(monkeypatch):
     """Test that dash_authenticate includes code_verifier in token exchange."""
     monkeypatch.setattr(mcp_server_dash, "APP_KEY", "test_app_key")
-    monkeypatch.setattr(mcp_server_dash, "APP_SECRET", "test_app_secret")
 
     # Set up code_verifier
     test_verifier = "test_verifier_12345_abcdefghijklmnopqrstuv"
@@ -225,7 +222,6 @@ async def test_dash_authenticate_includes_code_verifier(monkeypatch):
 async def test_dash_authenticate_clears_verifier_on_error(monkeypatch):
     """Test that code_verifier is cleared even when authentication fails."""
     monkeypatch.setattr(mcp_server_dash, "APP_KEY", "test_app_key")
-    monkeypatch.setattr(mcp_server_dash, "APP_SECRET", "test_app_secret")
 
     # Set up code_verifier
     test_verifier = "test_verifier_error_case"
@@ -259,7 +255,6 @@ async def test_dash_authenticate_clears_verifier_on_error(monkeypatch):
 async def test_pkce_full_flow(monkeypatch):
     """Integration test: full OAuth flow with PKCE from URL generation to authentication."""
     monkeypatch.setattr(mcp_server_dash, "APP_KEY", "test_app_key")
-    monkeypatch.setattr(mcp_server_dash, "APP_SECRET", "test_app_secret")
 
     # Clear initial state
     mcp_server_dash.pkce_flow._code_verifier = None

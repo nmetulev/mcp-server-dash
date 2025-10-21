@@ -44,10 +44,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load env vars (APP_KEY, APP_SECRET) from environment and optional .env file
+# Load APP_KEY from environment and optional .env file
 load_dotenv()
 APP_KEY = os.getenv("APP_KEY")
-APP_SECRET = os.getenv("APP_SECRET")
 
 
 token_store = DropboxTokenStore()
@@ -71,21 +70,13 @@ def require_auth(func):
     return wrapper
 
 
-def require_app_creds(func):
-    """Decorator that ensures APP_KEY and APP_SECRET are set."""
+def require_app_key(func):
+    """Decorator that ensures APP_KEY is set."""
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        if (
-            not APP_KEY
-            or not APP_SECRET
-            or APP_KEY.startswith("your_")
-            or APP_SECRET.startswith("your_")
-        ):
-            return (
-                "Dropbox app credentials missing. Set APP_KEY and APP_SECRET in environment "
-                "or .env."
-            )
+        if not APP_KEY or APP_KEY.startswith("your_"):
+            return "Dropbox app key missing. Set APP_KEY in environment or .env file."
         return await func(*args, **kwargs)
 
     return wrapper
@@ -96,7 +87,7 @@ mcp = FastMCP("dash-mcp")
 
 
 @mcp.tool()
-@require_app_creds
+@require_app_key
 async def dash_get_auth_url() -> str:
     """Start Dropbox OAuth with PKCE; returns the authorization URL.
 
@@ -108,7 +99,7 @@ async def dash_get_auth_url() -> str:
       across sessions until it expires or is revoked.
 
     Requirements:
-    - Environment must provide `APP_KEY` and `APP_SECRET` (via env or `.env`).
+    - Environment must provide `APP_KEY` (via env or `.env`).
 
     Security:
     - This implementation uses PKCE (RFC 7636) to protect against authorization code interception.
@@ -125,7 +116,7 @@ async def dash_get_auth_url() -> str:
     - Use `dash_authenticate` immediately after the user completes the browser step.
     """
     try:
-        # Type assertion: @require_app_creds decorator guarantees APP_KEY is set
+        # Type assertion: @require_app_key decorator guarantees APP_KEY is set
         assert APP_KEY is not None
         authorize_url = pkce_flow.generate_auth_url(APP_KEY)
         return (
@@ -141,7 +132,7 @@ async def dash_get_auth_url() -> str:
 
 
 @mcp.tool()
-@require_app_creds
+@require_app_key
 async def dash_authenticate(auth_code: str) -> str:
     """Complete Dropbox OAuth using the one-time authorization code with PKCE.
 
@@ -166,9 +157,8 @@ async def dash_authenticate(auth_code: str) -> str:
     """
     global token_store
     try:
-        # Type assertions: @require_app_creds decorator guarantees these are set
+        # Type assertion: @require_app_key decorator guarantees APP_KEY is set
         assert APP_KEY is not None
-        assert APP_SECRET is not None
 
         # Exchange authorization code for access token using PKCE (no secret needed)
         token_data = await pkce_flow.exchange_code_for_token(auth_code, APP_KEY)
