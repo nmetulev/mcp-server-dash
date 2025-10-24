@@ -11,8 +11,194 @@
     "entry_point": "mcp-dropbox-dash.exe",
     "mcp_config": {
       "command": "mcp-dropbox-dash.exe",
-      "args": [
-      ]
+      "args": []
+    }
+  },
+  "tools": [
+    {
+      "name": "dash_authenticate",
+      "description": "Complete Dropbox OAuth using the one-time authorization code with PKCE.\n\nParameters:\n- auth_code: string (required) — the code the user copied from the Dropbox approval page.\n\nSecurity:\n- This implementation uses PKCE (RFC 7636) to protect against authorization code interception.\n  The code_verifier generated in dash_get_auth_url is included in the token exchange to prove\n  that the same client that initiated the flow is completing it.\n\nReturns (text):\n- On success: account display name and email, plus a confirmation that tools are available.\n- On failure: a human-readable error string (e.g., invalid/expired code or missing app creds).\n\nNotes for LLMs:\n- If not authenticated, guide the user to call `dash_get_auth_url`, approve in the browser,\n  then call this tool with the displayed code.\n- On auth failures, instruct the user to restart the flow with a new auth URL.\n- A successful authentication persists a token using the local token store, so it usually\n  only needs to be performed once until the token expires or is revoked.\n"
+    },
+    {
+      "name": "dash_company_search",
+      "description": "Search company content indexed by Dropbox Dash.\n\nParameters:\n- query: string (required) — the search query text.\n- file_type: one of [\"document\",\"image\",\"video\",\"audio\",\"pdf\",\"presentation\",\"spreadsheet\"]\n  or null for no filter. Default: null. The value \"document\" is also treated as no filter\n  for backward compatibility.\n- max_results: integer in [1..100]. Default: 20.\n\nReturns (text):\n- A formatted list of results. Each result contains predictable, labeled fields such as:\n  \"UUID:\", \"Type:\", \"URL:\", \"Preview:\", \"Description:\", \"File Type:\", \"MIME Type:\",\n  \"Source:\", \"Creator:\", \"Last Modified By:\", \"Updated:\", \"Source Updated:\",\n  \"Relevance:\", \"Source ID:\". Results are separated by a divider line.\n\nErrors:\n- If unauthenticated, returns a human-readable instruction to re-authenticate.\n- If parameters are invalid (e.g., out-of-range `max_results` or unsupported `file_type`),\n  returns a human-readable validation message.\n\nNotes for LLMs:\n- If the user is already authenticated (token cached), this tool can be called directly;\n  otherwise guide them through `dash_get_auth_url` → `dash_authenticate`.\n- Use the returned \"UUID\" to fetch details with `dash_get_file_details(uuid)`.\n- Result formatting is stable: each line begins with an optional emoji, then a label and a\n  colon (e.g., \"\uD83D\uDD11 UUID: …\"). The divider consists of 50 em dashes.\n"
+    },
+    {
+      "name": "dash_get_auth_url",
+      "description": "Start Dropbox OAuth with PKCE; returns the authorization URL.\n\n    When to use:\n    - Use this when the user is not yet authenticated or if a previous token has expired.\n      Visit the returned URL, approve access, then copy the one-time code shown by Dropbox.\n    - Next, call `dash_authenticate(auth_code)` with that code to complete auth.\n    - Authentication is cached in a local token file; you typically do this once and reuse it\n      across sessions until it expires or is revoked.\n\n    Requirements:\n    - Environment must provide `APP_KEY` (via env or `.env`).\n\n    Security:\n    - This implementation uses PKCE (RFC 7636) to protect against authorization code interception.\n      Even if an attacker intercepts the auth code, they cannot exchange it without the\n      code_verifier that exists only in this server's memory.\n\n    Returns (text):\n    - A short instruction message followed by the authorization URL on its own line.\n      Example:\n        \"Visit this URL to authorize Dropbox Dash...\n\nhttps://www.dropbox.com/…\"\n\n    Notes for LLMs:\n    - If app credentials are missing, this tool returns a human-readable error string.\n    - Use `dash_authenticate` immediately after the user completes the browser step.\n    "
+    },
+    {
+      "name": "dash_get_file_details",
+      "description": "Fetch detailed metadata (and optional content snippet) for a result UUID.\n\nParameters:\n- uuid: string (required) — the UUID obtained from `dash_company_search` results.\n\nReturns (text):\n- A human-readable summary including fields like: Title, Link, Updated, Source Updated,\n  MIME Type, Source, Creator, Last Modified By. If media metadata is available, a section is\n  included for video or image attributes. If body content is present, a \"File Content\" section\n  includes the MIME type and a content preview.\n\nContent truncation:\n- Large bodies are truncated to ~20,000 characters and annotated with a note indicating the\n  total length.\n\nErrors:\n- If unauthenticated, returns a human-readable instruction to re-authenticate.\n- If the UUID is not found, returns a human-readable message noting the missing file.\n\nNotes for LLMs:\n- The input UUID should come from `dash_company_search` results.\n- Lines follow a stable pattern: optional emoji, label, colon, then value (e.g., \"\uD83D\uDD17 Link: …\").\n- Media sections are titled \"\uD83C\uDF9E️ Video Metadata:\" or \"\uD83D\uDCF7 Image Metadata:\" when present.\n"
+    }
+  ],
+  "tools_generated": false,
+  "license": "MIT",
+  "_meta": {
+    "com.microsoft.windows": {
+      "static_responses": {
+        "initialize": {
+          "protocolVersion": "2025-06-18",
+          "capabilities": {
+            "experimental": {},
+            "prompts": {
+              "listChanged": false
+            },
+            "resources": {
+              "subscribe": false,
+              "listChanged": false
+            },
+            "tools": {
+              "listChanged": false
+            }
+          },
+          "serverInfo": {
+            "name": "dash-mcp",
+            "version": "1.18.0"
+          }
+        },
+        "tools/list": {
+          "tools": [
+            {
+              "name": "dash_get_auth_url",
+              "description": "Start Dropbox OAuth with PKCE; returns the authorization URL.\n\n    When to use:\n    - Use this when the user is not yet authenticated or if a previous token has expired.\n      Visit the returned URL, approve access, then copy the one-time code shown by Dropbox.\n    - Next, call `dash_authenticate(auth_code)` with that code to complete auth.\n    - Authentication is cached in a local token file; you typically do this once and reuse it\n      across sessions until it expires or is revoked.\n\n    Requirements:\n    - Environment must provide `APP_KEY` (via env or `.env`).\n\n    Security:\n    - This implementation uses PKCE (RFC 7636) to protect against authorization code interception.\n      Even if an attacker intercepts the auth code, they cannot exchange it without the\n      code_verifier that exists only in this server's memory.\n\n    Returns (text):\n    - A short instruction message followed by the authorization URL on its own line.\n      Example:\n        \"Visit this URL to authorize Dropbox Dash...\n\nhttps://www.dropbox.com/…\"\n\n    Notes for LLMs:\n    - If app credentials are missing, this tool returns a human-readable error string.\n    - Use `dash_authenticate` immediately after the user completes the browser step.\n    ",
+              "inputSchema": {
+                "properties": {},
+                "title": "dash_get_auth_urlArguments",
+                "type": "object"
+              },
+              "outputSchema": {
+                "properties": {
+                  "result": {
+                    "title": "Result",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "result"
+                ],
+                "title": "dash_get_auth_urlOutput",
+                "type": "object"
+              }
+            },
+            {
+              "name": "dash_authenticate",
+              "description": "Complete Dropbox OAuth using the one-time authorization code with PKCE.\n\nParameters:\n- auth_code: string (required) — the code the user copied from the Dropbox approval page.\n\nSecurity:\n- This implementation uses PKCE (RFC 7636) to protect against authorization code interception.\n  The code_verifier generated in dash_get_auth_url is included in the token exchange to prove\n  that the same client that initiated the flow is completing it.\n\nReturns (text):\n- On success: account display name and email, plus a confirmation that tools are available.\n- On failure: a human-readable error string (e.g., invalid/expired code or missing app creds).\n\nNotes for LLMs:\n- If not authenticated, guide the user to call `dash_get_auth_url`, approve in the browser,\n  then call this tool with the displayed code.\n- On auth failures, instruct the user to restart the flow with a new auth URL.\n- A successful authentication persists a token using the local token store, so it usually\n  only needs to be performed once until the token expires or is revoked.\n",
+              "inputSchema": {
+                "properties": {
+                  "auth_code": {
+                    "title": "Auth Code",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "auth_code"
+                ],
+                "title": "dash_authenticateArguments",
+                "type": "object"
+              },
+              "outputSchema": {
+                "properties": {
+                  "result": {
+                    "title": "Result",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "result"
+                ],
+                "title": "dash_authenticateOutput",
+                "type": "object"
+              }
+            },
+            {
+              "name": "dash_company_search",
+              "description": "Search company content indexed by Dropbox Dash.\n\nParameters:\n- query: string (required) — the search query text.\n- file_type: one of [\"document\",\"image\",\"video\",\"audio\",\"pdf\",\"presentation\",\"spreadsheet\"]\n  or null for no filter. Default: null. The value \"document\" is also treated as no filter\n  for backward compatibility.\n- max_results: integer in [1..100]. Default: 20.\n\nReturns (text):\n- A formatted list of results. Each result contains predictable, labeled fields such as:\n  \"UUID:\", \"Type:\", \"URL:\", \"Preview:\", \"Description:\", \"File Type:\", \"MIME Type:\",\n  \"Source:\", \"Creator:\", \"Last Modified By:\", \"Updated:\", \"Source Updated:\",\n  \"Relevance:\", \"Source ID:\". Results are separated by a divider line.\n\nErrors:\n- If unauthenticated, returns a human-readable instruction to re-authenticate.\n- If parameters are invalid (e.g., out-of-range `max_results` or unsupported `file_type`),\n  returns a human-readable validation message.\n\nNotes for LLMs:\n- If the user is already authenticated (token cached), this tool can be called directly;\n  otherwise guide them through `dash_get_auth_url` → `dash_authenticate`.\n- Use the returned \"UUID\" to fetch details with `dash_get_file_details(uuid)`.\n- Result formatting is stable: each line begins with an optional emoji, then a label and a\n  colon (e.g., \"\uD83D\uDD11 UUID: …\"). The divider consists of 50 em dashes.\n",
+              "inputSchema": {
+                "properties": {
+                  "query": {
+                    "title": "Query",
+                    "type": "string"
+                  },
+                  "file_type": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "document",
+                          "image",
+                          "video",
+                          "audio",
+                          "pdf",
+                          "presentation",
+                          "spreadsheet"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "File Type"
+                  },
+                  "max_results": {
+                    "default": 20,
+                    "title": "Max Results",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "query"
+                ],
+                "title": "dash_company_searchArguments",
+                "type": "object"
+              },
+              "outputSchema": {
+                "properties": {
+                  "result": {
+                    "title": "Result",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "result"
+                ],
+                "title": "dash_company_searchOutput",
+                "type": "object"
+              }
+            },
+            {
+              "name": "dash_get_file_details",
+              "description": "Fetch detailed metadata (and optional content snippet) for a result UUID.\n\nParameters:\n- uuid: string (required) — the UUID obtained from `dash_company_search` results.\n\nReturns (text):\n- A human-readable summary including fields like: Title, Link, Updated, Source Updated,\n  MIME Type, Source, Creator, Last Modified By. If media metadata is available, a section is\n  included for video or image attributes. If body content is present, a \"File Content\" section\n  includes the MIME type and a content preview.\n\nContent truncation:\n- Large bodies are truncated to ~20,000 characters and annotated with a note indicating the\n  total length.\n\nErrors:\n- If unauthenticated, returns a human-readable instruction to re-authenticate.\n- If the UUID is not found, returns a human-readable message noting the missing file.\n\nNotes for LLMs:\n- The input UUID should come from `dash_company_search` results.\n- Lines follow a stable pattern: optional emoji, label, colon, then value (e.g., \"\uD83D\uDD17 Link: …\").\n- Media sections are titled \"\uD83C\uDF9E️ Video Metadata:\" or \"\uD83D\uDCF7 Image Metadata:\" when present.\n",
+              "inputSchema": {
+                "properties": {
+                  "uuid": {
+                    "title": "Uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "uuid"
+                ],
+                "title": "dash_get_file_detailsArguments",
+                "type": "object"
+              },
+              "outputSchema": {
+                "properties": {
+                  "result": {
+                    "title": "Result",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "result"
+                ],
+                "title": "dash_get_file_detailsOutput",
+                "type": "object"
+              }
+            }
+          ]
+        }
+      }
     }
   }
 }
