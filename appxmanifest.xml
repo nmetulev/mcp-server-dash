@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Package 
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap2="http://schemas.microsoft.com/appx/manifest/uap/windows10/2"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  IgnorableNamespaces="uap uap2 uap3 rescap desktop desktop6 uap10">
+
+  <Identity
+    Name="mcp-dropbox-dash"
+    Publisher="CN=nikolame"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>mcp-dropbox-dash</DisplayName>
+    <PublisherDisplayName>nikolame</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.18362.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="mcpDropboxDash"
+      Executable="mcp-server-dash.exe"
+      EntryPoint="Windows.FullTrustApplication"
+      uap10:TrustLevel="mediumIL" 
+      uap10:RuntimeBehavior="packagedClassicApp">
+      <uap:VisualElements
+        DisplayName="mcp-dropbox-dash"
+        Description="MCP Dropbox Dash"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        AppListEntry="none">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension
+            Name="com.microsoft.windows.ai.mcpServer"
+            Id="McpPandoc"
+            DisplayName="McpPandoc">
+            <uap3:Properties>
+              <Registration>mcp-manifest.json</Registration>
+            </uap3:Properties>
+          </uap3:AppExtension>
+        </uap3:Extension>
+        
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias>
+            <uap5:ExecutionAlias Alias="mcp-dropbox-dash.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

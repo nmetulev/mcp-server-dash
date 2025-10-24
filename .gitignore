@@ -47,3 +47,8 @@ build/
 # Test coverage
 .coverage
 htmlcov/
+
+# Development certificate
+devcert.pfx
+
+*.msix

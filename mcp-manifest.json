@@ -1,0 +1,18 @@
+{
+  "manifest_version": "0.1",
+  "name": "mcp-dropbox-dash",
+  "version": "1.0.0",
+  "description": "MCP server for Dropbox Dash, installed via MSIX",
+  "author": {
+    "name": "nikolame"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "mcp-dropbox-dash.exe",
+    "mcp_config": {
+      "command": "mcp-dropbox-dash.exe",
+      "args": [
+      ]
+    }
+  }
+}
