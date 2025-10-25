@@ -6,6 +6,15 @@
   "author": {
     "name": "nikolame"
   },
+  "user_config": {
+    "app_key": {
+      "type": "string",
+      "title": "API Key",
+      "description": "Your API key for authentication",
+      "sensitive": true,
+      "required": true
+    }
+  },
   "server": {
     "type": "binary",
     "entry_point": "mcp-dropbox-dash.exe",
