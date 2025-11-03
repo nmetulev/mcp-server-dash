@@ -22,6 +22,9 @@ An MCP server that exposes Dropbox Dash search and file metadata via STDIO using
   - Args:
     - `query` (string, required) — search text
     - `file_type` (string or null, optional) — one of: `document`, `image`, `video`, `audio`, `pdf`, `presentation`, `spreadsheet`; or `null` for no filter. Default: `null`. The value `document` is also treated as no filter.
+    - `connector` (string or null, optional) — filter by connector source. Common connectors include `confluence`, `dropbox`, `github`, `gmail`, `gong`, `google_calendar`, `google_drive`, `jira`, `microsoft_365`, `microsoft_teams`, `slack`, `workday`, `zoom`, among others. Default: `null` for no connector filter.
+    - `start_time` (string or null, optional) — filter results modified after this datetime (ISO 8601 format, e.g., `2025-10-30T16:24:12.071Z`). Default: `null` for no start time filter.
+    - `end_time` (string or null, optional) — filter results modified before this datetime (ISO 8601 format, e.g., `2025-10-31T16:24:12.071Z`). Default: `null` for no end time filter.
     - `max_results` (integer, optional) — default `20`, range `1..100`
   - Returns (text): A formatted list of results. Each result includes labeled fields such as `UUID:`, `Type:`, `URL:`, `Preview:`, `Description:`, `File Type:`, `MIME Type:`, `Source:`, `Creator:`, `Last Modified By:`, `Updated:`, `Source Updated:`, `Relevance:`, `Source ID:`. Results are separated by a divider line.
   - Errors: Human-readable messages for invalid parameters or missing authentication.
