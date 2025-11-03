@@ -15,7 +15,7 @@
   <Identity
     Name="mcp-dropbox-dash"
     Publisher="CN=nikolame"
-    Version="1.0.2.0" />
+    Version="1.0.4.0" />
 
   <Properties>
     <DisplayName>mcp-dropbox-dash</DisplayName>

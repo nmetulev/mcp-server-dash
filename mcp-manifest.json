@@ -1,5 +1,5 @@
 {
-  "manifest_version": "0.1",
+  "manifest_version": "0.1.1",
   "name": "mcp-dropbox-dash",
   "version": "1.0.0",
   "description": "MCP server for Dropbox Dash, installed via MSIX",
@@ -7,9 +7,9 @@
     "name": "nikolame"
   },
   "user_config": {
-    "app_key": {
+    "APP_KEY": {
       "type": "string",
-      "title": "API Key",
+      "title": "APP_KEY",
       "description": "Your API key for authentication",
       "sensitive": true,
       "required": true
@@ -20,7 +20,10 @@
     "entry_point": "mcp-dropbox-dash.exe",
     "mcp_config": {
       "command": "mcp-dropbox-dash.exe",
-      "args": []
+      "args": [],
+      "env": {
+        "APP_KEY": "${user_config.APP_KEY}"
+      }
     }
   },
   "tools": [
