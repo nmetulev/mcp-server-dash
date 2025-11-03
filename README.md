@@ -112,9 +112,13 @@ Authenticate via tools: call `dash_get_auth_url`, then `dash_authenticate` with 
 
 ### Token Management
 
-Tokens are stored securely in your system keyring under the service name `mcp-server-dash`.
+Tokens are stored securely in your system keyring under the service name `mcp-server-dash` or in `~/.mcp-server-dash/dropbox_token.json`
 
-To clear a stored token, use your system's credential management tool (Keychain Access on macOS, Credential Manager on Windows, or Secret Service on Linux) to delete the `mcp-server-dash` entry.
+To clear a stored token, use:
+
+```
+uv run src/mcp_server_dash.py --clear-token
+```
 
 ### Common MCP Server Configuration
 
@@ -125,6 +129,7 @@ Claude and Cursor below.
 ❗ **Important:** Update the configuration below with the path to your installation and with your `APP_KEY`.
 
 MCP Server Configuration:
+
 ```json
 {
   "mcpServers": {
