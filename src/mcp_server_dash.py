@@ -279,7 +279,9 @@ async def dash_company_search(
     - file_type: one of ["document","image","video","audio","pdf","presentation","spreadsheet"]
       or null for no filter. Default: null. The value "document" is also treated as no filter
       for backward compatibility.
-    - connector: string (optional) — filter by connector source (e.g., "slack", "google_drive").
+    - connector: string (optional) — filter by connector source. Common connectors include
+      "confluence", "dropbox", "github", "gmail", "gong", "google_calendar", "google_drive",
+      "jira", "microsoft_365", "microsoft_teams", "slack", "workday", "zoom", among others.
       Default: null for no connector filter.
     - start_time: string (optional) — filter results modified after this datetime (ISO 8601 format,
       e.g., "2025-10-30T16:24:12.071Z"). Default: null for no start time filter.
