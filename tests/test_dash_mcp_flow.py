@@ -303,3 +303,111 @@ async def test_pkce_full_flow(monkeypatch):
 
     # Verify code_verifier was cleared
     assert mcp_server_dash.pkce_flow._code_verifier is None
+
+
+# ========== New Filter Tests ==========
+
+
+class RequestCapturingAPI(FakeAPI):
+    """Fake API that captures the request for inspection."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.captured_request = None
+
+    async def search(self, req):
+        self.captured_request = req
+        return DashSearchResponse(results=[])
+
+
+async def _search_with_captured_request(monkeypatch, **search_kwargs):
+    """Helper to run search and return the captured request."""
+    api_instance = RequestCapturingAPI()
+
+    def create_api(*args, **kwargs):
+        return api_instance
+
+    monkeypatch.setattr(mcp_server_dash, "token_store", FakeTokenStore(authed=True, token="t"))
+    monkeypatch.setattr(mcp_server_dash, "DashAPI", create_api)
+
+    out = await mcp_server_dash.dash_company_search(**search_kwargs)
+    assert "Found 0 results" in out
+    return api_instance.captured_request
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "connector_id,query",
+    [
+        ("slack", "test query"),
+        ("google_drive", "documents"),
+        ("dropbox", "files"),
+    ],
+)
+async def test_search_with_connector_parameter(monkeypatch, connector_id, query):
+    """Test that connector parameter is passed through to DashAPI."""
+    req = await _search_with_captured_request(monkeypatch, query=query, connector=connector_id)
+    assert req.connector_id == connector_id
+    assert req.query_text == query
+
+
+@pytest.mark.asyncio
+async def test_search_with_time_range_parameters(monkeypatch):
+    """Test that start_time and end_time parameters are passed through to DashAPI."""
+    start = "2025-10-30T16:24:12.071Z"
+    end = "2025-10-31T16:24:12.071Z"
+
+    req = await _search_with_captured_request(
+        monkeypatch, query="recent docs", start_time=start, end_time=end
+    )
+    assert req.start_datetime == start
+    assert req.end_datetime == end
+    assert req.query_text == "recent docs"
+
+
+@pytest.mark.asyncio
+async def test_search_with_all_filters(monkeypatch):
+    """Test that all filter parameters work together."""
+    start = "2025-10-30T00:00:00.000Z"
+
+    req = await _search_with_captured_request(
+        monkeypatch,
+        query="pdfs",
+        file_type="pdf",
+        connector="google_drive",
+        start_time=start,
+        max_results=50,
+    )
+    assert req.query_text == "pdfs"
+    assert req.file_type == "pdf"
+    assert req.connector_id == "google_drive"
+    assert req.start_datetime == start
+    assert req.max_results == 50
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "time_param,time_value,expected_start,expected_end",
+    [
+        ("start_time", "2025-10-30T00:00:00.000Z", "2025-10-30T00:00:00.000Z", None),
+        ("end_time", "2025-10-31T23:59:59.999Z", None, "2025-10-31T23:59:59.999Z"),
+    ],
+)
+async def test_search_with_partial_time_range(
+    monkeypatch, time_param, time_value, expected_start, expected_end
+):
+    """Test that start_time or end_time can be specified independently."""
+    req = await _search_with_captured_request(
+        monkeypatch, query="query", **{time_param: time_value}
+    )
+    assert req.start_datetime == expected_start
+    assert req.end_datetime == expected_end
+
+
+@pytest.mark.asyncio
+async def test_search_filters_default_to_none(monkeypatch):
+    """Test that filter parameters default to None when not specified."""
+    req = await _search_with_captured_request(monkeypatch, query="query")
+    assert req.connector_id is None
+    assert req.start_datetime is None
+    assert req.end_datetime is None

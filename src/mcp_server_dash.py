@@ -267,6 +267,9 @@ async def dash_company_search(
     file_type: (
         Literal["document", "image", "video", "audio", "pdf", "presentation", "spreadsheet"] | None
     ) = None,
+    connector: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
     max_results: int = 20,
 ) -> str:
     """Search company content indexed by Dropbox Dash.
@@ -276,6 +279,12 @@ async def dash_company_search(
     - file_type: one of ["document","image","video","audio","pdf","presentation","spreadsheet"]
       or null for no filter. Default: null. The value "document" is also treated as no filter
       for backward compatibility.
+    - connector: string (optional) — filter by connector source (e.g., "slack", "google_drive").
+      Default: null for no connector filter.
+    - start_time: string (optional) — filter results modified after this datetime (ISO 8601 format,
+      e.g., "2025-10-30T16:24:12.071Z"). Default: null for no start time filter.
+    - end_time: string (optional) — filter results modified before this datetime (ISO 8601 format,
+      e.g., "2025-10-31T16:24:12.071Z"). Default: null for no end time filter.
     - max_results: integer in [1..100]. Default: 20.
 
     Returns (text):
@@ -319,6 +328,9 @@ async def dash_company_search(
         req = DashSearchRequest(
             query_text=query,
             file_type=(file_type if file_type not in (None, "document") else None),
+            connector_id=connector,
+            start_datetime=start_time,
+            end_datetime=end_time,
             max_results=max_results,
         )
         try:
