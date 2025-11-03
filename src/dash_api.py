@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 class DashSearchRequest(BaseModel):
     query_text: str
     file_type: str | None = None
+    connector_id: str | None = None
+    start_datetime: str | None = None
+    end_datetime: str | None = None
     max_results: int = 20
     disable_spell_correction: bool = False
 
@@ -167,8 +170,44 @@ class DashAPI:
             "query_options": {"disable_spell_correction": req.disable_spell_correction},
             "max_results": req.max_results,
         }
+
+        # Build filters list
+        filters = []
+
+        # Add file type filter if specified
         if req.file_type and req.file_type != "document":
-            body["filters"] = [{"type": "file_type_filter", "file_types": [req.file_type]}]
+            filters.append(
+                {
+                    "filter": {
+                        ".tag": "file_type_filter",
+                        "file_type": req.file_type,
+                    }
+                }
+            )
+            body["search_vertical"] = {".tag": "multimedia"}
+
+        # Add connector filter if specified
+        if req.connector_id:
+            filters.append(
+                {
+                    "filter": {
+                        ".tag": "connector_filter",
+                        "connector_id": req.connector_id,
+                    }
+                }
+            )
+
+        # Add time range filter if specified
+        if req.start_datetime or req.end_datetime:
+            time_filter: dict[str, Any] = {".tag": "time_range_filter"}
+            if req.start_datetime:
+                time_filter["start_datetime"] = req.start_datetime
+            if req.end_datetime:
+                time_filter["end_datetime"] = req.end_datetime
+            filters.append({"filter": time_filter})
+
+        if filters:
+            body["filters"] = filters
 
         resp = await self._post("https://api.dropboxapi.com/2/dcs/search_mcp", json=body)
         data = resp.json()
