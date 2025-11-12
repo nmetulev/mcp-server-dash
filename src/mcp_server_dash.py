@@ -6,6 +6,7 @@ and reuse it until it expires or is revoked. Logging level is controlled by the
 `LOG_LEVEL` env var (default: WARNING).
 """
 
+import argparse
 import asyncio
 import functools
 import logging
@@ -82,8 +83,58 @@ def require_app_key(func):
     return wrapper
 
 
-# Initialize fastmcp app
-mcp = FastMCP("dash-mcp")
+# Parse command-line arguments early to configure FastMCP properly
+def _parse_args():
+    """Parse command-line arguments to determine server configuration."""
+    parser = argparse.ArgumentParser(
+        description="Dropbox Dash MCP Server - Expose Dash search and file metadata via MCP"
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["stdio", "server"],
+        default="stdio",
+        help="Transport mode: 'stdio' for Claude Desktop/Cursor (default), 'server' for SSE",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to bind to in server mode (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to bind to in server mode (default: 8000)",
+    )
+    parser.add_argument(
+        "--clear-token",
+        action="store_true",
+        help="Clear stored Dropbox token from keyring and file storage, then exit",
+    )
+    parser.add_argument(
+        "--ssl-keyfile",
+        type=str,
+        help="Path to SSL private key file for HTTPS (server mode only)",
+    )
+    parser.add_argument(
+        "--ssl-certfile",
+        type=str,
+        help="Path to SSL certificate file for HTTPS (server mode only)",
+    )
+    return parser.parse_args()
+
+
+# Parse args to get configuration for FastMCP initialization
+_args = (
+    _parse_args()
+    if __name__ == "__main__"
+    else argparse.Namespace(
+        mode="stdio", host="127.0.0.1", port=8000, ssl_keyfile=None, ssl_certfile=None
+    )
+)
+
+# Initialize fastmcp app with appropriate host/port for server mode
+mcp = FastMCP("dash-mcp", host=_args.host, port=_args.port)
 
 
 @mcp.tool()
@@ -216,6 +267,9 @@ async def dash_company_search(
     file_type: (
         Literal["document", "image", "video", "audio", "pdf", "presentation", "spreadsheet"] | None
     ) = None,
+    connector: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
     max_results: int = 20,
 ) -> str:
     """Search company content indexed by Dropbox Dash.
@@ -225,6 +279,14 @@ async def dash_company_search(
     - file_type: one of ["document","image","video","audio","pdf","presentation","spreadsheet"]
       or null for no filter. Default: null. The value "document" is also treated as no filter
       for backward compatibility.
+    - connector: string (optional) — filter by connector source. Common connectors include
+      "confluence", "dropbox", "github", "gmail", "gong", "google_calendar", "google_drive",
+      "jira", "microsoft_365", "microsoft_teams", "slack", "workday", "zoom", among others.
+      Default: null for no connector filter.
+    - start_time: string (optional) — filter results modified after this datetime (ISO 8601 format,
+      e.g., "2025-10-30T16:24:12.071Z"). Default: null for no start time filter.
+    - end_time: string (optional) — filter results modified before this datetime (ISO 8601 format,
+      e.g., "2025-10-31T16:24:12.071Z"). Default: null for no end time filter.
     - max_results: integer in [1..100]. Default: 20.
 
     Returns (text):
@@ -268,6 +330,9 @@ async def dash_company_search(
         req = DashSearchRequest(
             query_text=query,
             file_type=(file_type if file_type not in (None, "document") else None),
+            connector_id=connector,
+            start_datetime=start_time,
+            end_datetime=end_time,
             max_results=max_results,
         )
         try:
@@ -522,9 +587,68 @@ def _format_file_details_response(resp: GetLinkMetadataResponse, uuid: str) -> s
 
 
 def main() -> None:
-    # Keep stdio transport (default for fastmcp.run())
-    print("Dash MCP Server is running...")
-    mcp.run()
+    """Main entry point with support for both stdio and server modes."""
+    # Handle --clear-token flag
+    if _args.clear_token:
+        from token_store import clear_token_interactive
+
+        clear_token_interactive()
+        sys.exit(0)
+
+    if _args.mode == "server":
+        # Server mode with SSE transport
+        # Validate SSL configuration
+        ssl_enabled = False
+        if _args.ssl_keyfile or _args.ssl_certfile:
+            if not _args.ssl_keyfile or not _args.ssl_certfile:
+                print(
+                    "Error: Both --ssl-keyfile and --ssl-certfile must be provided for HTTPS",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if not os.path.exists(_args.ssl_keyfile):
+                print(f"Error: SSL key file not found: {_args.ssl_keyfile}", file=sys.stderr)
+                sys.exit(1)
+            if not os.path.exists(_args.ssl_certfile):
+                print(
+                    f"Error: SSL certificate file not found: {_args.ssl_certfile}", file=sys.stderr
+                )
+                sys.exit(1)
+            ssl_enabled = True
+
+        protocol = "https" if ssl_enabled else "http"
+        logger.info(
+            f"Starting Dash MCP Server in server mode on {protocol}://{_args.host}:{_args.port}"
+        )
+        print(
+            f"Dash MCP Server is running in server mode on {protocol}://{_args.host}:{_args.port}/mcp"
+        )
+
+        # If SSL is enabled, we need to use uvicorn directly since FastMCP doesn't expose SSL config
+        if ssl_enabled:
+            import uvicorn
+
+            # Get the Starlette app from FastMCP
+            starlette_app = mcp.streamable_http_app()
+
+            # Create uvicorn config with SSL
+            config = uvicorn.Config(
+                starlette_app,
+                host=_args.host,
+                port=_args.port,
+                log_level=_level_name.lower(),
+                ssl_keyfile=_args.ssl_keyfile,
+                ssl_certfile=_args.ssl_certfile,
+            )
+            server = uvicorn.Server(config)
+            asyncio.run(server.serve())
+        else:
+            mcp.run(transport="streamable-http")
+    else:
+        # STDIO mode (default)
+        logger.info("Starting Dash MCP Server in stdio mode")
+        print("Dash MCP Server is running in stdio mode...", file=sys.stderr)
+        mcp.run()
 
 
 if __name__ == "__main__":

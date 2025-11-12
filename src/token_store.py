@@ -12,6 +12,10 @@ import keyring
 
 logger = logging.getLogger(__name__)
 
+# Constants for token storage
+MCP_SERVER_DIR_NAME = ".mcp-server-dash"
+TOKEN_FILENAME = "dropbox_token.json"
+
 # Keyring service name for storing Dropbox tokens
 KEYRING_SERVICE = "mcp-server-dash"
 KEYRING_USERNAME = "dropbox_access_token"
@@ -19,14 +23,14 @@ KEYRING_USERNAME = "dropbox_access_token"
 
 def get_default_token_dir() -> pathlib.Path:
     """Get a writable directory for token storage.
-    
+
     Uses user's home directory/.mcp-server-dash/ which is guaranteed to be writable.
     Falls back to CWD if home directory is not accessible.
     """
     try:
         # Use user's home directory for reliable, writable storage
         home = pathlib.Path.home()
-        token_dir = home / ".mcp-server-dash"
+        token_dir = home / MCP_SERVER_DIR_NAME
         token_dir.mkdir(parents=True, exist_ok=True)
         return token_dir
     except Exception as e:
@@ -43,7 +47,7 @@ class DropboxTokenStore:
 
     def __init__(self, base_dir: pathlib.Path | None = None) -> None:
         base = base_dir or get_default_token_dir()
-        self._token_file = base / "dropbox_token.json"
+        self._token_file = base / TOKEN_FILENAME
         self.access_token: str | None = None
         self.dbx: dropbox.Dropbox | None = None
 
@@ -62,11 +66,15 @@ class DropboxTokenStore:
         # Remove from keyring
         with suppress(Exception):
             keyring.delete_password(KEYRING_SERVICE, KEYRING_USERNAME)
-        # Remove legacy file-based tokens
+
+        # Remove file-based tokens
         with suppress(Exception):
             self._token_file.unlink(missing_ok=True)
 
     def _read_token_file(self, path: pathlib.Path) -> str | None:
+        if not path.exists():
+            return None
+
         try:
             with path.open("r") as f:
                 data = json.load(f)
@@ -76,7 +84,7 @@ class DropboxTokenStore:
             return None
 
     def load(self) -> bool:
-        """Load token from keyring (or legacy file storage) and validate it.
+        """Load token from keyring (or from file storage) and validate it.
 
         Returns True if a valid token is loaded, else False.
         """
@@ -85,11 +93,9 @@ class DropboxTokenStore:
             # Primary: Load from keyring
             token = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
 
-            # Fallback: local dropbox_token.json in CWD
-            if not token and self._token_file.exists():
+            # Fallback: file-based storage
+            if not token:
                 token = self._read_token_file(self._token_file)
-                if token:
-                    logger.info("Migrating token from legacy file to keyring")
 
             if not token:
                 return False
@@ -99,13 +105,6 @@ class DropboxTokenStore:
             dbx.users_get_current_account()
             self.access_token = token
             self.dbx = dbx
-
-            # If loaded from legacy file, save to keyring and remove file
-            if self._token_file.exists():
-                self.save(token)
-                with suppress(Exception):
-                    self._token_file.unlink(missing_ok=True)
-
             return True
         except dropbox.exceptions.AuthError as e:
             logger.warning("Invalid/expired Dropbox token found on load: %s", e)
@@ -130,30 +129,46 @@ class DropboxTokenStore:
                 with self._token_file.open("w") as f:
                     json.dump({"access_token": token}, f)
                 # Set restrictive permissions on Windows (owner only)
-                if hasattr(self._token_file, 'chmod'):
+                if hasattr(self._token_file, "chmod"):
                     with suppress(Exception):
                         self._token_file.chmod(0o600)
                 logger.info(f"Token saved to file: {self._token_file}")
             except Exception as file_error:
                 logger.error(f"Failed to save token to file: {file_error}")
-                raise RuntimeError(f"Failed to save token to keyring or file: {file_error}") from file_error
-        
+                raise RuntimeError(
+                    f"Failed to save token to keyring or file: {file_error}"
+                ) from file_error
+
         self.access_token = token
         self.dbx = dropbox.Dropbox(token)
 
 
-def main() -> None:
-    """Interactive token management utility."""
+def clear_token_interactive() -> None:
+    """Interactive token clearing utility.
+
+    Checks for tokens in keyring and file storage, displays their locations,
+    prompts for confirmation, and clears them if confirmed.
+    """
     store = DropboxTokenStore()
 
-    # Check if token exists
-    token = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
+    # Check if tokens exist
+    keyring_token = None
+    with suppress(Exception):
+        keyring_token = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
 
-    if not token:
-        print("No token found in keyring.")
+    file_token = None
+    if store.token_file.exists():
+        file_token = store._read_token_file(store.token_file)
+
+    if not keyring_token and not file_token:
+        print("No token found in either keyring or file storage.")
         return
 
-    print(f"Token found in keyring (service: {KEYRING_SERVICE})")
+    if keyring_token:
+        print(f"Token found in keyring (service: {KEYRING_SERVICE})")
+    if file_token:
+        print(f"Token found in file (path: {store.token_file})")
+
     response = input("Do you want to remove the token? (y/N): ").strip().lower()
 
     if response == "y":
@@ -161,7 +176,3 @@ def main() -> None:
         print("Token removed successfully.")
     else:
         print("Token not removed.")
-
-
-if __name__ == "__main__":
-    main()
